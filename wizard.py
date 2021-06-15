@@ -59,11 +59,15 @@ class MainWindow(QMainWindow):
             f.write(f'sim = supplant.Configuration(\'{skeleton}\')' + '\n')
             for i, combo in enumerate(self.comboBoxes):
                 if combo.currentText() == self.options[0]:
-                    f.write(f'sim.add_constant(\'{self.labels[i].text()}\', {self.lineEdits[i].text()})' + '\n')
+                    f.write(f'sim.add_constant(\'{self.labels[i].text()}\', \'{self.lineEdits[i].text()}\')' + '\n')
                 elif combo.currentText() == self.options[1]:
-                    f.write(f'sim.add_variable(\'{self.labels[i].text()}\', [{self.lineEdits[i].text()}])' + '\n')
+                    list_string = str(self.lineEdits[i].text()).split()
+                    list_string = [str(i) for i in list_string]
+                    f.write(f'sim.add_variable(\'{self.labels[i].text()}\', {list_string})' + '\n')
                 elif combo.currentText() == self.options[2]:
-                    f.write(f'sim.add_dependent(\'{self.labels[i].text()}\', [{self.lineEdits[i].text()}], \'{self.dependentBoxes[i].currentText()}\')' + '\n')
+                    list_string = str(self.lineEdits[i].text()).split()
+                    list_string = [str(i) for i in list_string]
+                    f.write(f'sim.add_dependent(\'{self.labels[i].text()}\', {list_string}, \'{self.dependentBoxes[i].currentText()}\')' + '\n')
             f.write('sim.write_configurations()' + '\n')
 
 
