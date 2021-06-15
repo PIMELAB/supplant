@@ -4,7 +4,10 @@ import os
 
 class Configuration:
     def __init__(self, skeleton):
-        self.skeleton = skeleton
+        if skeleton[-1] == '/':
+            self.skeleton = skeleton[:-1]
+        else:
+            self.skeleton = skeleton
         self.files = []
         self.folders = []
         self.read_files(self.skeleton)
@@ -42,11 +45,10 @@ class Configuration:
         for file_ in self.files:
             with open(file_, 'r') as f:
                 for line in f:
-                    splitted = line.split()
-                    for i in splitted:
-                        if pattern in i:
-                            content.append(i)
-                            filenames.append(file_)
+                    splitted = line.split('__')
+                    if len(splitted) > 1:
+                        content.append(pattern+splitted[1]+pattern)
+                        filenames.append(file_)
         return filenames, content
 
     def write_case_files(self, id_):
@@ -58,10 +60,7 @@ class Configuration:
         for file_ in self.files:
             content = open(file_, 'r').read()
             content = self.replace_words(content, self.constants)
-            if self.skeleton[-1] == '/':
-                new_file = file_.replace(self.skeleton[:-1], case_name)
-            else:
-                new_file = file_.replace(self.skeleton, case_name)
+            new_file = file_.replace(self.skeleton, case_name)
             with open(new_file, 'w') as f:
                 f.write(content)
 
@@ -76,7 +75,7 @@ class Configuration:
             self.write_case_files(0)
 
         elif len(self.variables) == 1:
-            for count, i  in enumerate(self.variables[var_names[0]]):
+            for count_i, i  in enumerate(self.variables[var_names[0]]):
                 print(i, var_names[0])
                 self.constants[var_names[0]] = i
                 for dep_key, dep_value in self.dependents.items():
