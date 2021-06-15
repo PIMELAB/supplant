@@ -37,12 +37,17 @@ class Configuration:
         return string
 
     def check(self, pattern='__'):
+        content = []
+        filenames = []
         for file_ in self.files:
             with open(file_, 'r') as f:
                 for line in f:
-                    if pattern in line:
-                        print(f'{file_}: {line}')
-
+                    splitted = line.split()
+                    for i in splitted:
+                        if pattern in i:
+                            content.append(i)
+                            filenames.append(file_)
+        return filenames, content
 
     def write_case_files(self, id_):
         case_name = f'case_{id_}'
