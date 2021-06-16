@@ -15,6 +15,7 @@ class Configuration:
         self.variables = {}
         self.dependents = {}
         self.relations = {}
+        self.counters = {}
 
     def read_files(self, skeleton):
         all_files = glob.glob(f'{skeleton}/**', recursive=True)
@@ -33,6 +34,10 @@ class Configuration:
     def add_dependent(self, key, value, parent):
         self.dependents[key] = value
         self.relations[key] = parent
+
+    def add_counter(self, key):
+        self.counters[key] = True
+        self.constants[key] = 0
 
     def replace_words(self, string, words):
         for key, value in words.items():
@@ -56,6 +61,9 @@ class Configuration:
         for folder in self.folders:
             new_folder = folder.replace(self.skeleton, case_name)
             os.makedirs(new_folder, exist_ok=True)
+
+        for key, value in self.counters.items():
+            self.constants[key] = id_
 
         for file_ in self.files:
             content = open(file_, 'r').read()
