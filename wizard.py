@@ -1,7 +1,14 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QGridLayout, QPushButton, QWidget, QLineEdit, QLabel, QComboBox, QMainWindow
+from PyQt5.QtWidgets import QApplication, QGridLayout, QPushButton, QToolButton, QWidget, QLineEdit, QLabel, QComboBox, QMainWindow, QGroupBox, QVBoxLayout, QHBoxLayout, QFrame, QSpacerItem, QSizePolicy
 
 import supplant
+
+
+class QHLine(QFrame):
+    def __init__(self):
+        super(QHLine, self).__init__()
+        self.setFrameShape(QFrame.HLine)
+        self.setFrameShadow(QFrame.Sunken)
 
 
 class MainWindow(QMainWindow):
@@ -10,45 +17,105 @@ class MainWindow(QMainWindow):
 
         self.widget = QWidget()
         self.setCentralWidget(self.widget)
-        self.layout = QGridLayout(self.widget)
+        self.main_layout = QHBoxLayout(self.widget)
+        #self.layout = QVBoxLayout(self.widget)#QGridLayout(self.widget)
+        self.layout = QVBoxLayout()
+        self.layout_preview = QVBoxLayout()
+        self.frame = QFrame()
+        self.frame.setFrameShape(QFrame.StyledPanel)
+        self.frame.resize(300, 300)
+        self.layout_preview.addWidget(self.frame)
+        self.main_layout.addLayout(self.layout)
+        self.main_layout.addLayout(self.layout_preview)
+        #self.layout_preview.addWidget(QPushButton('Run'))
         self.setWindowTitle('Configuration Wizard')
+        self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+
+        # Settings Box
+        self.settings_box = QGroupBox('Settings')
+        self.layout_settings = QGridLayout()
+        self.settings_box.setLayout(self.layout_settings)
+        self.layout_settings.addWidget(QLabel('Skeleton Folder'), 0, 0)
+        self.skeleton_folder = QLineEdit()
+        self.browse_skeleton = QToolButton()
+        self.browse_skeleton.setText('...')
+        self.layout_settings.addWidget(self.skeleton_folder, 0, 1)
+        self.layout_settings.addWidget(self.browse_skeleton, 0, 2)
+
+        self.combo_box_doe = QComboBox()
+        self.combo_box_doe.addItem('Full Factorial')
+        self.layout_settings.addWidget(QLabel('DOE'), 1, 0)
+        self.layout_settings.addWidget(self.combo_box_doe)
+
+        self.layout.addLayout(self.layout_settings)
+
 
         self.sim = supplant.Configuration(sys.argv[1])
         self.filenames, self.content = self.sim.check()
         self.content = list(dict.fromkeys(self.content)) # remove duplicates
+        self.groupBoxes = {}
+        self.layoutBoxes = {}
+        # Assign layout to group boxes
+        for i in range(len(self.content)):
+            group_name = self.content[i].split(',')[0]
+            self.groupBoxes[group_name] = QGroupBox(group_name)
+            self.groupBoxes[group_name].setAlignment(4)
+            self.layoutBoxes[group_name] = QGridLayout()
+            self.groupBoxes[group_name].setLayout(self.layoutBoxes[group_name])
+            self.layoutBoxes[group_name].addWidget(QLabel('Type'), 0, 0)
+            self.layoutBoxes[group_name].addWidget(QLabel('Variable'), 0, 1)
+            self.layoutBoxes[group_name].addWidget(QLabel('Value'), 0, 2)
+            self.layoutBoxes[group_name].addWidget(QLabel('Unit'), 0, 3)
+            self.layoutBoxes[group_name].addWidget(QLabel('Depends'), 0, 4)
+            self.layoutBoxes[group_name].addWidget(QHLine(), 1, 0, 1, 5)
+
         self.options = ['constant', 'variable', 'dependent']
         self.labels = self.content.copy()
+        self.units = self.content.copy()
         self.comboBoxes = self.content.copy()
         self.lineEdits = self.content.copy()
         self.dependentBoxes = self.content.copy()
         number = 0
-        for i in range(len(self.content)):
-            self.labels[number] = QLabel(self.content[i])
-            self.layout.addWidget(self.labels[number], i, 0)
+        for row in range(len(self.content)):
+            group_name, var_name, unit = self.content[row].split(',')
+            print(row, group_name, var_name, unit)
+
+            self.labels[number] = QLabel(var_name)
+            self.layoutBoxes[group_name].addWidget(self.labels[number], row+2, 1)
             self.comboBoxes[number] = QComboBox()
             self.comboBoxes[number].addItems(self.options)
             self.comboBoxes[number].currentIndexChanged.connect(self.on_combobox_changed)
-            # TODO: Create comboBox with labels as options when selecting 'dependent' option
-            self.layout.addWidget(self.comboBoxes[number], i, 1)
+            self.units[number] = QLabel(unit)
+            self.layoutBoxes[group_name].addWidget(self.units[number], row+2, 3)
+            self.dependentBoxes[number] = QComboBox()
+            self.layoutBoxes[group_name].addWidget(self.comboBoxes[number], row+2, 0)
             self.lineEdits[number] = QLineEdit()
-            self.layout.addWidget(self.lineEdits[number], i, 2)
+            self.layoutBoxes[group_name].addWidget(self.lineEdits[number], row+2, 2)
             number += 1
+
+        # Add group boxes to the vertical layout
+        self.layout.addWidget(self.settings_box)
+        for group in self.groupBoxes:
+            self.layout.addWidget(self.groupBoxes[group])
+            self.layout.addItem(self.verticalSpacer)
 
         self.button = QPushButton('Save configuration')
         self.button.clicked.connect(self.save_config)
-        self.layout.addWidget(self.button, len(self.content)+1, 0)
 
         self.show()
 
     def on_combobox_changed(self):
-        for i, combo in enumerate(self.comboBoxes):
+        """
+        Populate the dependents comboBox
+        """
+        for row, combo in enumerate(self.comboBoxes):
+            group_name = self.content[row].split(',')[0]
             if combo.currentIndex() == 2:
-                if type(self.dependentBoxes[i]) == QComboBox:
-                    pass
-                else:
-                    self.dependentBoxes[i] = QComboBox()
-                    self.dependentBoxes[i].addItems(self.content)
-                    self.layout.addWidget(self.dependentBoxes[i], i, 3)
+                self.dependentBoxes[row] = QComboBox()  # TODO: Make only an update to the box, not a new one
+                self.layoutBoxes[group_name].addWidget(self.dependentBoxes[row], row+2, 4)
+                for j, var in enumerate(self.comboBoxes):
+                    if var.currentText() == 'variable':
+                        self.dependentBoxes[row].addItem(self.labels[j].text())
 
     def save_config(self):
         print('Saving configuration')

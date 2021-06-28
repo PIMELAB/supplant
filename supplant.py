@@ -52,7 +52,7 @@ class Configuration:
                 for line in f:
                     splitted = line.split('__')
                     if len(splitted) > 1:
-                        content.append(pattern+splitted[1]+pattern)
+                        content.append(splitted[1])
                         filenames.append(file_)
         return filenames, content
 
