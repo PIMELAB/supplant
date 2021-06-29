@@ -1,3 +1,4 @@
+import os.path
 import sys
 from PyQt5.QtWidgets import *#QApplication, QGridLayout, QPushButton, QToolButton, QWidget, QLineEdit, QLabel, QComboBox, QMainWindow, QGroupBox, QVBoxLayout, QHBoxLayout, QFrame, QSpacerItem, QSizePolicy
 
@@ -32,6 +33,17 @@ class MainWindow(QMainWindow):
         self.setWindowTitle('Configuration Wizard')
         self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
 
+        # Declaring variables
+        self.groupBoxes = {}
+        self.layoutBoxes = {}
+        self.content = []
+        self.filenames = []
+        self.labels = []
+        self.units = []
+        self.comboBoxes = []
+        self.lineEdits = []
+        self.dependentBoxes = []
+
         # Menu bar
         self.menubar = QMenuBar(self)
         self.setMenuBar(self.menubar)
@@ -59,8 +71,6 @@ class MainWindow(QMainWindow):
         self.setStatusBar(self.statusbar)
         self.statusbar.showMessage('Working!')
 
-
-
         # Settings Box
         self.settings_box = QGroupBox('Settings')
         self.settings_box.setAlignment(4)
@@ -68,24 +78,54 @@ class MainWindow(QMainWindow):
         self.settings_box.setLayout(self.layout_settings)
         self.layout_settings.addWidget(QLabel('Skeleton Folder'), 0, 0)
         self.skeleton_folder = QLineEdit()
-        self.browse_skeleton = QToolButton()
-        self.browse_skeleton.setText('...')
+        self.skeleton_path = ''
+        self.toolButton_browse_skeleton = QToolButton(text='...')
         self.layout_settings.addWidget(self.skeleton_folder, 0, 1)
-        self.layout_settings.addWidget(self.browse_skeleton, 0, 2)
+        self.layout_settings.addWidget(self.toolButton_browse_skeleton, 0, 2)
 
         self.combo_box_doe = QComboBox()
         self.combo_box_doe.addItem('Full Factorial')
         self.layout_settings.addWidget(QLabel('DOE'), 1, 0)
         self.layout_settings.addWidget(self.combo_box_doe)
 
+        self.options = ['constant', 'variable', 'dependent']
+
         self.layout.addLayout(self.layout_settings)
 
+        # Connections
+        self.toolButton_browse_skeleton.clicked.connect(self.open_folder)
 
-        self.sim = supplant.Configuration(sys.argv[1])
+
+        # Add group boxes to the vertical layout
+        self.layout.addWidget(self.settings_box)
+
+        self.button = QPushButton('Save configuration')
+        self.button.clicked.connect(self.save_config)
+
+        if len(sys.argv) > 1:
+            self.skeleton_path = os.path.abspath(sys.argv[1])
+            self.sim = supplant.Configuration(self.skeleton_path)
+            self.skeleton_folder.setText(self.skeleton_path)
+            self.load_case()
+        else:
+            self.open_folder()
+
+        self.show()
+
+    def open_folder(self):
+        """ Open file dialog to choose a folder
+        """
+        foldername = QFileDialog.getExistingDirectory(self, "Select Input Folder")
+        if foldername:
+            self.skeleton_path = foldername
+            self.skeleton_folder.setText(foldername)
+            self.load_case()
+
+    def load_case(self):
+        self.sim = supplant.Configuration(self.skeleton_path)
         self.filenames, self.content = self.sim.check()
-        self.content = list(dict.fromkeys(self.content)) # remove duplicates
-        self.groupBoxes = {}
-        self.layoutBoxes = {}
+        self.content = list(dict.fromkeys(self.content))  # remove duplicates
+
         # Assign layout to group boxes
         for i in range(len(self.content)):
             group_name = self.content[i].split(',')[0]
@@ -100,7 +140,7 @@ class MainWindow(QMainWindow):
             self.layoutBoxes[group_name].addWidget(QLabel('Depends'), 0, 4)
             self.layoutBoxes[group_name].addWidget(QHLine(), 1, 0, 1, 5)
 
-        self.options = ['constant', 'variable', 'dependent']
+        #self.options = ['constant', 'variable', 'dependent']
         self.labels = self.content.copy()
         self.units = self.content.copy()
         self.comboBoxes = self.content.copy()
@@ -109,57 +149,22 @@ class MainWindow(QMainWindow):
         number = 0
         for row in range(len(self.content)):
             group_name, var_name, unit = self.content[row].split(',')
-            print(row, group_name, var_name, unit)
-
             self.labels[number] = QLabel(var_name)
-            self.layoutBoxes[group_name].addWidget(self.labels[number], row+2, 1)
+            self.layoutBoxes[group_name].addWidget(self.labels[number], row + 2, 1)
             self.comboBoxes[number] = QComboBox()
             self.comboBoxes[number].addItems(self.options)
             self.comboBoxes[number].currentIndexChanged.connect(self.on_combobox_changed)
             self.units[number] = QLabel(unit)
-            self.layoutBoxes[group_name].addWidget(self.units[number], row+2, 3)
+            self.layoutBoxes[group_name].addWidget(self.units[number], row + 2, 3)
             self.dependentBoxes[number] = QComboBox()
-            self.layoutBoxes[group_name].addWidget(self.comboBoxes[number], row+2, 0)
+            self.layoutBoxes[group_name].addWidget(self.comboBoxes[number], row + 2, 0)
             self.lineEdits[number] = QLineEdit()
-            self.layoutBoxes[group_name].addWidget(self.lineEdits[number], row+2, 2)
+            self.layoutBoxes[group_name].addWidget(self.lineEdits[number], row + 2, 2)
             number += 1
 
-        # Add group boxes to the vertical layout
-        self.layout.addWidget(self.settings_box)
         for group in self.groupBoxes:
             self.layout.addWidget(self.groupBoxes[group])
             self.layout.addItem(self.verticalSpacer)
-
-        self.button = QPushButton('Save configuration')
-        self.button.clicked.connect(self.save_config)
-        #self._createMenuBar()
-        self.show()
-
-    def _createMenuBar(self):
-        """ Create menu bar"""
-        menuBar = QMenuBar(self)
-        self.setMenuBar(menuBar)
-        #self.menubar.setGeometry(QRect(0, 0, 968, 30))
-        menuBar.setObjectName("menubar")
-        menuOpen = QMenu(menuBar)
-        menuOpen.setObjectName("menuOpen")
-        menuHelp = QMenu(menuBar)
-        menuHelp.setObjectName("menuHelp")
-        self.setMenuBar(menuBar)
-        statusbar = QStatusBar(self)
-        statusbar.setObjectName("statusbar")
-        self.setStatusBar(statusbar)
-        actionOpen = QAction(self)
-        actionOpen.setObjectName("actionOpen")
-        actionSave = QAction(self)
-        actionSave.setObjectName("actionSave")
-        actionAbout = QAction(self)
-        actionAbout.setObjectName("actionAbout")
-        menuOpen.addAction(actionOpen)
-        menuOpen.addAction(actionSave)
-        menuHelp.addAction(actionAbout)
-        menuBar.addAction(menuOpen.menuAction())
-        menuBar.addAction(menuHelp.menuAction())
 
     def on_combobox_changed(self):
         """

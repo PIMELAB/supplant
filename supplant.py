@@ -52,7 +52,8 @@ class Configuration:
                 for line in f:
                     splitted = line.split('__')
                     if len(splitted) > 1:
-                        content.append(splitted[1])
+                        for var in splitted:
+                            content.append(var) if var.count(',') == 2 else False
                         filenames.append(file_)
         return filenames, content
 
