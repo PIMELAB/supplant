@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QGridLayout, QPushButton, QToolButton, QWidget, QLineEdit, QLabel, QComboBox, QMainWindow, QGroupBox, QVBoxLayout, QHBoxLayout, QFrame, QSpacerItem, QSizePolicy
+from PyQt5.QtWidgets import *#QApplication, QGridLayout, QPushButton, QToolButton, QWidget, QLineEdit, QLabel, QComboBox, QMainWindow, QGroupBox, QVBoxLayout, QHBoxLayout, QFrame, QSpacerItem, QSizePolicy
 
 import supplant
 
@@ -15,6 +15,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
+        # Layouts and main structure definition
         self.widget = QWidget()
         self.setCentralWidget(self.widget)
         self.main_layout = QHBoxLayout(self.widget)
@@ -27,12 +28,42 @@ class MainWindow(QMainWindow):
         self.layout_preview.addWidget(self.frame)
         self.main_layout.addLayout(self.layout)
         self.main_layout.addLayout(self.layout_preview)
-        #self.layout_preview.addWidget(QPushButton('Run'))
+        self.layout_preview.addWidget(QPushButton('Run'))
         self.setWindowTitle('Configuration Wizard')
         self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
 
+        # Menu bar
+        self.menubar = QMenuBar(self)
+        self.setMenuBar(self.menubar)
+        #self.menubar.setGeometry(QRect(0, 0, 968, 30))
+
+        ## File
+        self.menuFile = QMenu('&File')
+        self.actionOpen = QAction('&Open', self.menuFile)
+        self.actionSave = QAction('&Save', self.menuFile)
+        self.actionExit = QAction('&Exit', self.menuFile)
+        self.menuFile.addAction(self.actionOpen)
+        self.menuFile.addAction(self.actionSave)
+        self.menuFile.addAction(self.actionExit)
+        self.menubar.addAction(self.menuFile.menuAction())
+
+        ## Help
+        self.menuHelp = QMenu('&Help')
+        self.actionAbout = QAction('&About', self.menuHelp)
+        self.menuHelp.addAction(self.actionAbout)
+        self.menubar.addAction(self.menuHelp.menuAction())
+
+        # Status bar
+        self.statusbar = QStatusBar(self)
+        #self.statusbar.setObjectName("statusbar")
+        self.setStatusBar(self.statusbar)
+        self.statusbar.showMessage('Working!')
+
+
+
         # Settings Box
         self.settings_box = QGroupBox('Settings')
+        self.settings_box.setAlignment(4)
         self.layout_settings = QGridLayout()
         self.settings_box.setLayout(self.layout_settings)
         self.layout_settings.addWidget(QLabel('Skeleton Folder'), 0, 0)
@@ -101,8 +132,34 @@ class MainWindow(QMainWindow):
 
         self.button = QPushButton('Save configuration')
         self.button.clicked.connect(self.save_config)
-
+        #self._createMenuBar()
         self.show()
+
+    def _createMenuBar(self):
+        """ Create menu bar"""
+        menuBar = QMenuBar(self)
+        self.setMenuBar(menuBar)
+        #self.menubar.setGeometry(QRect(0, 0, 968, 30))
+        menuBar.setObjectName("menubar")
+        menuOpen = QMenu(menuBar)
+        menuOpen.setObjectName("menuOpen")
+        menuHelp = QMenu(menuBar)
+        menuHelp.setObjectName("menuHelp")
+        self.setMenuBar(menuBar)
+        statusbar = QStatusBar(self)
+        statusbar.setObjectName("statusbar")
+        self.setStatusBar(statusbar)
+        actionOpen = QAction(self)
+        actionOpen.setObjectName("actionOpen")
+        actionSave = QAction(self)
+        actionSave.setObjectName("actionSave")
+        actionAbout = QAction(self)
+        actionAbout.setObjectName("actionAbout")
+        menuOpen.addAction(actionOpen)
+        menuOpen.addAction(actionSave)
+        menuHelp.addAction(actionAbout)
+        menuBar.addAction(menuOpen.menuAction())
+        menuBar.addAction(menuHelp.menuAction())
 
     def on_combobox_changed(self):
         """
