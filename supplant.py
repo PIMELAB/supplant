@@ -8,6 +8,7 @@ class Configuration:
             self.skeleton = skeleton[:-1]
         else:
             self.skeleton = skeleton
+        self.pattern = '__'
         self.files = []
         self.folders = []
         self.read_files(self.skeleton)
@@ -41,10 +42,10 @@ class Configuration:
 
     def replace_words(self, string, words):
         for key, value in words.items():
-            string = string.replace(key, str(value))
+            string = string.replace(self.pattern + key + self.pattern, str(value))
         return string
 
-    def check(self, pattern='__'):
+    def check(self):
         content = []
         filenames = []
         for file_ in self.files:
@@ -58,6 +59,7 @@ class Configuration:
         return filenames, content
 
     def write_case_files(self, id_):
+        table_row = []
         case_name = f'case_{id_}'
         for folder in self.folders:
             new_folder = folder.replace(self.skeleton, case_name)
@@ -66,33 +68,40 @@ class Configuration:
         for key, value in self.counters.items():
             self.constants[key] = id_
 
+        for key, value in self.constants.items():
+            table_row.append(self.constants[key])
+
         for file_ in self.files:
             content = open(file_, 'r').read()
             content = self.replace_words(content, self.constants)
             new_file = file_.replace(self.skeleton, case_name)
             with open(new_file, 'w') as f:
                 f.write(content)
+        return table_row
 
     def write_configurations(self):
         id_ = 0
         var_names = []
+        table_rows = []
 
         for key, value in self.variables.items():
             var_names.append(key)
 
         if len(self.variables) == 0:
-            self.write_case_files(0)
+            table = self.write_case_files(0)
+            table_rows.append(table)
 
         elif len(self.variables) == 1:
-            for count_i, i  in enumerate(self.variables[var_names[0]]):
-                print(i, var_names[0])
+            for count_i, i in enumerate(self.variables[var_names[0]]):
+                print('inside supplant ', i, var_names[0])
                 self.constants[var_names[0]] = i
                 for dep_key, dep_value in self.dependents.items():
                     if self.relations[dep_key] == var_names[0]:
                         self.constants[dep_key] = dep_value[count_i]
                     else:
                         print(f'Wrong parent {self.relations[dep_key]}')
-                self.write_case_files(id_)
+                table = self.write_case_files(id_)
+                table_rows.append(table)
                 id_ += 1
 
         elif len(self.variables) == 2:
@@ -108,6 +117,8 @@ class Configuration:
                         else:
                             print(f'Wrong parent: {self.relations[dep_key]}')
                     self.write_case_files(id_)
+                    table = self.write_case_files(id_)
+                    table_rows.append(table)
                     id_ += 1
 
         elif len(self.variables) == 3:
@@ -127,6 +138,10 @@ class Configuration:
                             else:
                                 print(f'Wrong parent: {self.relations[dep_key]}')
                         self.write_case_files(id_)
+                        table = self.write_case_files(id_)
+                        table_rows.append(table)
                         id_ += 1
         else:
             print('Number of variables out of range')
+
+        return table_rows

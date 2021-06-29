@@ -20,18 +20,29 @@ class MainWindow(QMainWindow):
         self.widget = QWidget()
         self.setCentralWidget(self.widget)
         self.main_layout = QHBoxLayout(self.widget)
-        #self.layout = QVBoxLayout(self.widget)#QGridLayout(self.widget)
-        self.layout = QVBoxLayout()
-        self.layout_preview = QVBoxLayout()
-        self.frame = QFrame()
-        self.frame.setFrameShape(QFrame.StyledPanel)
-        self.frame.resize(300, 300)
-        self.layout_preview.addWidget(self.frame)
-        self.main_layout.addLayout(self.layout)
-        self.main_layout.addLayout(self.layout_preview)
-        self.layout_preview.addWidget(QPushButton('Run'))
         self.setWindowTitle('Configuration Wizard')
         self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+
+        ## Left panel
+        self.layout_left = QVBoxLayout()
+
+
+        ## Right panel
+        self.layout_right = QVBoxLayout()
+        self.tabWidget = QTabWidget()
+        self.tab_doe = QWidget()
+        self.tabWidget.addTab(self.tab_doe, 'DOE')
+        self.table_doe = QTableWidget()
+        self.layout_doe = QGridLayout()
+        self.tab_doe.setLayout(self.layout_doe)
+        self.layout_doe.addWidget(self.table_doe)
+        self.layout_right.addWidget(self.tabWidget)
+        self.pushButton_preview = QPushButton('Preview')
+        self.layout_right.addWidget(self.pushButton_preview)
+
+
+        self.main_layout.addLayout(self.layout_left)
+        self.main_layout.addLayout(self.layout_right)
 
         # Declaring variables
         self.groupBoxes = {}
@@ -43,11 +54,12 @@ class MainWindow(QMainWindow):
         self.comboBoxes = []
         self.lineEdits = []
         self.dependentBoxes = []
+        self.options = ['constant', 'variable', 'dependent']
+        self.table_rows = []
 
         # Menu bar
         self.menubar = QMenuBar(self)
         self.setMenuBar(self.menubar)
-        #self.menubar.setGeometry(QRect(0, 0, 968, 30))
 
         ## File
         self.menuFile = QMenu('&File')
@@ -75,7 +87,6 @@ class MainWindow(QMainWindow):
 
         # Status bar
         self.statusbar = QStatusBar(self)
-        #self.statusbar.setObjectName("statusbar")
         self.setStatusBar(self.statusbar)
         self.statusbar.showMessage('Working!')
 
@@ -90,22 +101,16 @@ class MainWindow(QMainWindow):
         self.toolButton_browse_skeleton = QToolButton(text='...')
         self.layout_settings.addWidget(self.skeleton_folder, 0, 1)
         self.layout_settings.addWidget(self.toolButton_browse_skeleton, 0, 2)
-
         self.combo_box_doe = QComboBox()
         self.combo_box_doe.addItem('Full Factorial')
         self.layout_settings.addWidget(QLabel('DOE'), 1, 0)
         self.layout_settings.addWidget(self.combo_box_doe)
-
-        self.options = ['constant', 'variable', 'dependent']
-
-        self.layout.addLayout(self.layout_settings)
+        self.layout_left.addLayout(self.layout_settings)
+        self.layout_left.addWidget(self.settings_box)
 
         # Connections
         self.toolButton_browse_skeleton.clicked.connect(self.open_folder)
-
-
-        # Add group boxes to the vertical layout
-        self.layout.addWidget(self.settings_box)
+        self.pushButton_preview.clicked.connect(self.bake_cases)
 
         self.button = QPushButton('Save configuration')
         self.button.clicked.connect(self.save_config)
@@ -118,8 +123,6 @@ class MainWindow(QMainWindow):
         else:
             self.open_folder()
 
-        self.show()
-
     def open_folder(self):
         """ Open file dialog to choose a folder
         """
@@ -130,6 +133,9 @@ class MainWindow(QMainWindow):
             self.load_case()
 
     def load_case(self):
+        """
+        Load case using supplant API and create selection boxes
+        """
         self.sim = supplant.Configuration(self.skeleton_path)
         self.filenames, self.content = self.sim.check()
         self.content = list(dict.fromkeys(self.content))  # remove duplicates
@@ -148,12 +154,13 @@ class MainWindow(QMainWindow):
             self.layoutBoxes[group_name].addWidget(QLabel('Depends'), 0, 4)
             self.layoutBoxes[group_name].addWidget(QHLine(), 1, 0, 1, 5)
 
-        #self.options = ['constant', 'variable', 'dependent']
         self.labels = self.content.copy()
         self.units = self.content.copy()
         self.comboBoxes = self.content.copy()
         self.lineEdits = self.content.copy()
         self.dependentBoxes = self.content.copy()
+
+        # Add items to group boxes
         number = 0
         for row in range(len(self.content)):
             group_name, var_name, unit = self.content[row].split(',')
@@ -170,22 +177,59 @@ class MainWindow(QMainWindow):
             self.layoutBoxes[group_name].addWidget(self.lineEdits[number], row + 2, 2)
             number += 1
 
+        # Add group boxes to the vertical layout
         for group in self.groupBoxes:
-            self.layout.addWidget(self.groupBoxes[group])
-            self.layout.addItem(self.verticalSpacer)
+            self.layout_left.addItem(self.verticalSpacer)
+            self.layout_left.addWidget(self.groupBoxes[group])
+
+    def bake_cases(self):
+        for index, value in enumerate(self.comboBoxes):
+            var_type = value.currentText()
+            var_name = self.content[index]#self.labels[index].text()
+            var_value = self.lineEdits[index].text()
+            var_depends = self.dependentBoxes[index].currentText()
+            print(var_type, var_name, var_value, var_depends)
+            if var_type == self.options[0]: # constant
+                self.sim.add_constant(var_name, var_value)
+            elif var_type == self.options[1]: # variable
+                self.sim.add_variable(var_name, var_value.split(','))
+            elif var_type == self.options[2]: # dependent
+                for deps in self.content:
+                    if var_depends in deps:
+                        self.sim.add_dependent(var_name, var_value.split(','), deps)
+        self.table_rows = self.sim.write_configurations()
+        self.preview_table()
+
+    def preview_table(self):
+        while self.table_doe.rowCount() > 0:
+            self.table_doe.removeRow(0)
+        while self.table_doe.columnCount() > 0:
+            self.table_doe.removeColumn(0)
+        labels = []
+        for i in self.labels:
+            labels.append(i.text())
+        for col in range(len(self.table_rows[0])):
+            self.table_doe.insertColumn(col)
+        for row in range(len(self.table_rows)):
+            self.table_doe.insertRow(row)
+        for row in range(len(self.table_rows)):
+            for col in range(len(self.table_rows[0])):
+                self.table_doe.setItem(row, col, QTableWidgetItem(self.table_rows[row][col]))
+        self.table_doe.setHorizontalHeaderLabels(labels)
+        self.table_doe.resizeColumnsToContents()
 
     def on_combobox_changed(self):
         """
         Populate the dependents comboBox
         """
         for row, combo in enumerate(self.comboBoxes):
-            group_name = self.content[row].split(',')[0]
+            group_name = self.content[row].split(',')[0].strip(' ')
             if combo.currentIndex() == 2:
                 self.dependentBoxes[row] = QComboBox()  # TODO: Make only an update to the box, not a new one
                 self.layoutBoxes[group_name].addWidget(self.dependentBoxes[row], row+2, 4)
                 for j, var in enumerate(self.comboBoxes):
                     if var.currentText() == 'variable':
-                        self.dependentBoxes[row].addItem(self.labels[j].text())
+                        self.dependentBoxes[row].addItem(self.labels[j].text().strip(' '))
 
     def save_config(self):
         print('Saving configuration')
