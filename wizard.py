@@ -1,7 +1,7 @@
 import os.path
 import sys
 from PyQt5.QtWidgets import *#QApplication, QGridLayout, QPushButton, QToolButton, QWidget, QLineEdit, QLabel, QComboBox, QMainWindow, QGroupBox, QVBoxLayout, QHBoxLayout, QFrame, QSpacerItem, QSizePolicy
-
+from PyQt5.QtGui import QIcon
 import supplant
 
 
@@ -52,16 +52,24 @@ class MainWindow(QMainWindow):
         ## File
         self.menuFile = QMenu('&File')
         self.actionOpen = QAction('&Open', self.menuFile)
+        self.actionOpen.setIcon(QIcon.fromTheme('document-open'))
         self.actionSave = QAction('&Save', self.menuFile)
+        self.actionSave.setIcon(QIcon.fromTheme('document-save'))
+        self.actionSaveAs = QAction('S&ave As', self.menuFile)
+        self.actionSaveAs.setIcon(QIcon.fromTheme('document-save-as'))
         self.actionExit = QAction('&Exit', self.menuFile)
+        self.actionExit.setIcon(QIcon.fromTheme('application-exit'))
         self.menuFile.addAction(self.actionOpen)
         self.menuFile.addAction(self.actionSave)
+        self.menuFile.addAction(self.actionSaveAs)
+        self.menuFile.addSeparator()
         self.menuFile.addAction(self.actionExit)
         self.menubar.addAction(self.menuFile.menuAction())
 
         ## Help
         self.menuHelp = QMenu('&Help')
         self.actionAbout = QAction('&About', self.menuHelp)
+        self.actionAbout.setIcon(QIcon.fromTheme('help-about'))
         self.menuHelp.addAction(self.actionAbout)
         self.menubar.addAction(self.menuHelp.menuAction())
 
