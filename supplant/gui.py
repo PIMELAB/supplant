@@ -2,8 +2,9 @@ import os.path
 import sys
 from PyQt5.QtWidgets import *#QApplication, QGridLayout, QPushButton, QToolButton, QWidget, QLineEdit, QLabel, QComboBox, QMainWindow, QGroupBox, QVBoxLayout, QHBoxLayout, QFrame, QSpacerItem, QSizePolicy
 from PyQt5.QtGui import QIcon
-import supplant
 
+#from . import doe
+import doe
 
 class QHLine(QFrame):
     def __init__(self):
@@ -117,9 +118,10 @@ class MainWindow(QMainWindow):
 
         if len(sys.argv) > 1:
             self.skeleton_path = os.path.abspath(sys.argv[1])
-            self.sim = supplant.Configuration(self.skeleton_path)
+            self.sim = doe.Configuration(self.skeleton_path)
             self.skeleton_folder.setText(self.skeleton_path)
             self.load_case()
+            self.populate_doe()
         else:
             self.open_folder()
 
@@ -131,15 +133,17 @@ class MainWindow(QMainWindow):
             self.skeleton_path = foldername
             self.skeleton_folder.setText(foldername)
             self.load_case()
+            self.populate_doe()
 
     def load_case(self):
         """
-        Load case using supplant API and create selection boxes
+        Load case using supplant API (doe) and create selection boxes
         """
-        self.sim = supplant.Configuration(self.skeleton_path)
+        self.sim = doe.Configuration(self.skeleton_path)
         self.filenames, self.content = self.sim.check()
         self.content = list(dict.fromkeys(self.content))  # remove duplicates
 
+    def populate_doe(self):
         # Assign layout to group boxes
         for i in range(len(self.content)):
             group_name = self.content[i].split(',')[0]
@@ -183,6 +187,7 @@ class MainWindow(QMainWindow):
             self.layout_left.addWidget(self.groupBoxes[group])
 
     def bake_cases(self):
+        self.load_case()
         for index, value in enumerate(self.comboBoxes):
             var_type = value.currentText()
             var_name = self.content[index]#self.labels[index].text()
@@ -235,9 +240,9 @@ class MainWindow(QMainWindow):
         print('Saving configuration')
         skeleton = sys.argv[1]
         with open('custom.py', 'w') as f:
-            f.write('import supplant' + '\n')
+            f.write('import doe' + '\n')
             f.write('\n')
-            f.write(f'sim = supplant.Configuration(\'{skeleton}\')' + '\n')
+            f.write(f'sim = doe.Configuration(\'{skeleton}\')' + '\n')
             for i, combo in enumerate(self.comboBoxes):
                 if combo.currentText() == self.options[0]:
                     f.write(f'sim.add_constant(\'{self.labels[i].text()}\', \'{self.lineEdits[i].text()}\')' + '\n')
