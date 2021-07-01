@@ -6,6 +6,7 @@ from PyQt5.QtCore import Qt
 
 from . import doe
 
+
 class QHLine(QFrame):
     def __init__(self):
         super(QHLine, self).__init__()
@@ -176,7 +177,7 @@ class MainWindow(QMainWindow):
             if len(self.content[row].split(',')) == 3:
                 group_name, var_name, unit = self.content[row].split(',')
             else:
-                group_name = self.filenames[i].split('/')
+                group_name = self.filenames[row].split('/')
                 group_name = '/'.join(group_name[-3:])
                 var_name = self.content[row]
                 unit = '-'
