@@ -1,5 +1,6 @@
 import glob
 import os
+import re
 
 
 class Configuration:
@@ -51,10 +52,11 @@ class Configuration:
         for file_ in self.files:
             with open(file_, 'r') as f:
                 for line in f:
-                    splitted = line.split('__')
-                    if len(splitted) > 1:
-                        for var in splitted:
-                            content.append(var) if var.count(',') == 2 else False
+                    occurances = [x.start() for x in re.finditer('__', line)]
+                    if len(occurances) > 1:
+                        for i in range(len(occurances)//2):
+                            var = line[occurances[i*2]+2:occurances[i*2+1]-0]
+                            content.append(var)
                         filenames.append(file_)
         return filenames, content
 

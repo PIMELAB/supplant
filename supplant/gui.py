@@ -4,10 +4,8 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtGui import QIcon, QCursor
 from PyQt5.QtCore import Qt
 
-# from . import doe
-import doe
-import openfoam
-
+from . import doe
+from . import openfoam
 
 class QHLine(QFrame):
     def __init__(self):
@@ -157,7 +155,11 @@ class MainWindow(QMainWindow):
     def populate_doe(self):
         # Assign layout to group boxes
         for i in range(len(self.content)):
-            group_name = self.content[i].split(',')[0]
+            if len(self.content[i].split(',')) == 3:
+                group_name = self.content[i].split(',')[0]
+            else:
+                group_name = self.filenames[i].split('/')
+                group_name = '/'.join(group_name[-3:])
             self.groupBoxes[group_name] = QGroupBox(group_name)
             self.groupBoxes[group_name].setAlignment(4)
             self.groupBoxes[group_name].setMaximumWidth(400)
@@ -179,7 +181,13 @@ class MainWindow(QMainWindow):
         # Add items to group boxes
         number = 0
         for row in range(len(self.content)):
-            group_name, var_name, unit = self.content[row].split(',')
+            if len(self.content[row].split(',')) == 3:
+                group_name, var_name, unit = self.content[row].split(',')
+            else:
+                group_name = self.filenames[i].split('/')
+                group_name = '/'.join(group_name[-3:])
+                var_name = self.content[row]
+                unit = '-'
             self.labels[number] = QLabel(var_name)
             self.layoutBoxes[group_name].addWidget(self.labels[number], row + 2, 1)
             self.comboBoxes[number] = QComboBox()

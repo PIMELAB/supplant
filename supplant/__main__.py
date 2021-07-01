@@ -1,8 +1,7 @@
 from PyQt5.QtWidgets import QApplication
 import sys
 
-#from . import gui
-import gui
+from . import gui
 
 app = QApplication(sys.argv)
 GUI = gui.MainWindow()
