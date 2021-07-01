@@ -1,11 +1,13 @@
 import os.path
 import sys
-from PyQt5.QtWidgets import *#QApplication, QGridLayout, QPushButton, QToolButton, QWidget, QLineEdit, QLabel, QComboBox, QMainWindow, QGroupBox, QVBoxLayout, QHBoxLayout, QFrame, QSpacerItem, QSizePolicy
+from PyQt5.QtWidgets import *
 from PyQt5.QtGui import QIcon, QCursor
 from PyQt5.QtCore import Qt
 
-#from . import doe
+# from . import doe
 import doe
+import openfoam
+
 
 class QHLine(QFrame):
     def __init__(self):
@@ -61,6 +63,7 @@ class MainWindow(QMainWindow):
         self.dependentBoxes = []
         self.options = ['constant', 'variable', 'dependent']
         self.table_rows = []
+        self.of_solver = ''
 
         # Menu bar
         self.menubar = QMenuBar(self)
@@ -144,6 +147,12 @@ class MainWindow(QMainWindow):
         self.sim = doe.Configuration(self.skeleton_path)
         self.filenames, self.content = self.sim.check()
         self.content = list(dict.fromkeys(self.content))  # remove duplicates
+        self.check_software()
+
+    def check_software(self):
+        for file in self.sim.files:
+            if file.find('controlDict') >= 0:
+                self.of_solver = openfoam.get_solver(file)
 
     def populate_doe(self):
         # Assign layout to group boxes
@@ -247,14 +256,16 @@ class MainWindow(QMainWindow):
         run_action = QAction('Run', self)
         stop_action = QAction('Stop', self)
         preview_action = QAction('Preview', self)
-        results_action = QAction('Results', self)
+        #results_action = QAction('Results', self)
         table_menu.addAction(run_action)
         table_menu.addAction(stop_action)
         table_menu.addAction(preview_action)
-        table_menu.addAction(results_action)
+        #table_menu.addAction(results_action)
         table_menu.popup(QCursor.pos())
+        #case = ???
         action = table_menu.exec_(self.table_doe.mapToGlobal(event))
         if action == run_action:
+            #openfoam.run_case(self.of_solver, case)
             print("Running")
         elif action == stop_action:
             print("Stopping")
