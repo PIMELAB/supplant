@@ -1,7 +1,8 @@
 import os.path
 import sys
 from PyQt5.QtWidgets import *#QApplication, QGridLayout, QPushButton, QToolButton, QWidget, QLineEdit, QLabel, QComboBox, QMainWindow, QGroupBox, QVBoxLayout, QHBoxLayout, QFrame, QSpacerItem, QSizePolicy
-from PyQt5.QtGui import QIcon
+from PyQt5.QtGui import QIcon, QCursor
+from PyQt5.QtCore import Qt
 
 #from . import doe
 import doe
@@ -34,11 +35,14 @@ class MainWindow(QMainWindow):
         self.tab_doe = QWidget()
         self.tabWidget.addTab(self.tab_doe, 'DOE')
         self.table_doe = QTableWidget()
+        self.table_doe.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.table_doe.customContextMenuRequested.connect(self.table_doe_context_menu)
         self.layout_doe = QGridLayout()
         self.tab_doe.setLayout(self.layout_doe)
         self.layout_doe.addWidget(self.table_doe)
         self.layout_right.addWidget(self.tabWidget)
         self.pushButton_preview = QPushButton('Preview')
+        self.pushButton_preview.clicked.connect(self.bake_cases)
         self.layout_right.addWidget(self.pushButton_preview)
 
 
@@ -94,12 +98,14 @@ class MainWindow(QMainWindow):
         # Settings Box
         self.settings_box = QGroupBox('Settings')
         self.settings_box.setAlignment(4)
+        self.settings_box.setMaximumWidth(400)
         self.layout_settings = QGridLayout()
         self.settings_box.setLayout(self.layout_settings)
         self.layout_settings.addWidget(QLabel('Skeleton Folder'), 0, 0)
         self.skeleton_folder = QLineEdit()
         self.skeleton_path = ''
         self.toolButton_browse_skeleton = QToolButton(text='...')
+        self.toolButton_browse_skeleton.clicked.connect(self.open_folder)
         self.layout_settings.addWidget(self.skeleton_folder, 0, 1)
         self.layout_settings.addWidget(self.toolButton_browse_skeleton, 0, 2)
         self.combo_box_doe = QComboBox()
@@ -108,10 +114,6 @@ class MainWindow(QMainWindow):
         self.layout_settings.addWidget(self.combo_box_doe)
         self.layout_left.addLayout(self.layout_settings)
         self.layout_left.addWidget(self.settings_box)
-
-        # Connections
-        self.toolButton_browse_skeleton.clicked.connect(self.open_folder)
-        self.pushButton_preview.clicked.connect(self.bake_cases)
 
         self.button = QPushButton('Save configuration')
         self.button.clicked.connect(self.save_config)
@@ -149,6 +151,7 @@ class MainWindow(QMainWindow):
             group_name = self.content[i].split(',')[0]
             self.groupBoxes[group_name] = QGroupBox(group_name)
             self.groupBoxes[group_name].setAlignment(4)
+            self.groupBoxes[group_name].setMaximumWidth(400)
             self.layoutBoxes[group_name] = QGridLayout()
             self.groupBoxes[group_name].setLayout(self.layoutBoxes[group_name])
             self.layoutBoxes[group_name].addWidget(QLabel('Type'), 0, 0)
@@ -190,7 +193,7 @@ class MainWindow(QMainWindow):
         self.load_case()
         for index, value in enumerate(self.comboBoxes):
             var_type = value.currentText()
-            var_name = self.content[index]#self.labels[index].text()
+            var_name = self.content[index]
             var_value = self.lineEdits[index].text()
             var_depends = self.dependentBoxes[index].currentText()
             print(var_type, var_name, var_value, var_depends)
@@ -235,6 +238,28 @@ class MainWindow(QMainWindow):
                 for j, var in enumerate(self.comboBoxes):
                     if var.currentText() == 'variable':
                         self.dependentBoxes[row].addItem(self.labels[j].text().strip(' '))
+
+    def table_doe_context_menu(self, event):
+        """
+        Add right mouse click options to the GUI
+        """
+        table_menu = QMenu(self)
+        run_action = QAction('Run', self)
+        stop_action = QAction('Stop', self)
+        preview_action = QAction('Preview', self)
+        results_action = QAction('Results', self)
+        table_menu.addAction(run_action)
+        table_menu.addAction(stop_action)
+        table_menu.addAction(preview_action)
+        table_menu.addAction(results_action)
+        table_menu.popup(QCursor.pos())
+        action = table_menu.exec_(self.table_doe.mapToGlobal(event))
+        if action == run_action:
+            print("Running")
+        elif action == stop_action:
+            print("Stopping")
+        elif action == preview_action:
+            print("Preview")
 
     def save_config(self):
         print('Saving configuration')
