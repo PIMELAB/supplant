@@ -315,7 +315,7 @@ class MainWindow(QMainWindow):
 
     def preview_surrogate(self):
         ax = self.fig_surrogate.add_subplot()
-
+        ax.clear()
         ax.grid()
         ax.set_xlabel(self.table_doe.horizontalHeaderItem(1).text())
         ax.set_ylabel(self.table_doe.horizontalHeaderItem(2).text())
@@ -325,13 +325,15 @@ class MainWindow(QMainWindow):
         shape = []
         # TODO: the model is hardcoded for the first and second columns
         for row in range(self.table_doe.rowCount()):
+            print(self.table_doe.item(row, 1).text())
             x.append(float(self.table_doe.item(row, 1).text()))
             y.append(float(self.table_doe.item(row, 2).text()))
-        # remove duplicates
-        x = list(dict.fromkeys(x))
-        y = list(dict.fromkeys(y))
+
         if self.completed:
             ax.clear()
+            # remove duplicates
+            x = list(dict.fromkeys(x))
+            y = list(dict.fromkeys(y))
             for case in self.sim.cases:
                 res = np.loadtxt(f'{case}/output.txt')
                 results.append(res)
@@ -345,7 +347,7 @@ class MainWindow(QMainWindow):
                                norm=LogNorm(vmin=results.min(),
                                             vmax=results.max()),
                                cmap='viridis_r')
-            #ax.scatter(results, results)
+            ax.scatter(x, y)
         else:
             ax.clear()
             ax.scatter(x, y)

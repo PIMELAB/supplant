@@ -1,7 +1,7 @@
 import glob
 import os
 import re
-
+import numpy as np
 
 class Configuration:
     def __init__(self, skeleton):
@@ -31,7 +31,13 @@ class Configuration:
         self.constants[key] = value
 
     def add_variable(self, key, values):
-        self.variables[key] = values
+        if '(' in values[0]:
+            values[0] = float(values[0].replace('(', ''))
+            values[1] = float(values[1])
+            values[2] = int(values[2].replace(')', ''))
+            values = np.linspace(values[0], values[1], values[2])
+        list_of_str = [str(item) for item in values]
+        self.variables[key] = list_of_str
 
     def add_dependent(self, key, value, parent):
         self.dependents[key] = value
@@ -80,6 +86,7 @@ class Configuration:
             new_file = file_.replace(self.skeleton, case_name)
             with open(new_file, 'w') as f:
                 f.write(content)
+        print(table_row)
         return table_row
 
     def write_configurations(self):
@@ -146,5 +153,4 @@ class Configuration:
                         id_ += 1
         else:
             print('Number of variables out of range')
-
         return table_rows
