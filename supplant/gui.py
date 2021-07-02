@@ -3,12 +3,13 @@ import sys
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import QIcon, QCursor, QColor
 from PyQt5.QtCore import Qt, QRunnable, pyqtSignal, pyqtSlot, QObject, QThread
+from matplotlib.backends.backend_qt5agg import FigureCanvas, NavigationToolbar2QT
+from matplotlib.figure import Figure
 from multiprocessing import Pool
 import subprocess
 import time
 from . import doe
 from . import openfoam
-
 
 
 class QHLine(QFrame):
@@ -36,6 +37,7 @@ class MainWindow(QMainWindow):
         ## Right panel
         self.layout_right = QVBoxLayout()
         self.tabWidget = QTabWidget()
+        ### Tab DOE
         self.tab_doe = QWidget()
         self.tabWidget.addTab(self.tab_doe, 'DOE')
         self.table_doe = QTableWidget()
@@ -46,6 +48,17 @@ class MainWindow(QMainWindow):
         self.tab_doe.setLayout(self.layout_doe)
         self.layout_doe.addWidget(self.table_doe)
         self.layout_right.addWidget(self.tabWidget)
+        ### Tab Surrogate Model
+        self.tab_surrogate = QWidget()
+        self.layout_surrogate = QGridLayout()
+        self.tab_surrogate.setLayout(self.layout_surrogate)
+        self.tabWidget.addTab(self.tab_surrogate, 'Surrogate Model')
+        self.fig_surrogate = Figure()
+        self.canvas_surrogate = FigureCanvas(self.fig_surrogate)
+        self.toolbar_surrogate = NavigationToolbar2QT(self.canvas_surrogate, self)
+        self.layout_surrogate.addWidget(self.toolbar_surrogate)
+        self.layout_surrogate.addWidget(self.canvas_surrogate)
+
         self.pushButton_preview = QPushButton('Preview')
         self.pushButton_preview.clicked.connect(self.bake_cases)
         self.layout_right.addWidget(self.pushButton_preview)
@@ -230,6 +243,7 @@ class MainWindow(QMainWindow):
                         self.sim.add_dependent(var_name, var_value.split(','), deps)
         self.table_rows = self.sim.write_configurations()
         self.preview_table()
+        self.preview_surrogate()
 
     def preview_table(self):
         col_size = len(self.table_rows[0])+1
@@ -262,6 +276,22 @@ class MainWindow(QMainWindow):
         self.table_doe.resizeColumnsToContents()
         self.table_doe.resize
 
+    def preview_surrogate(self):
+        ax = self.fig_surrogate.add_subplot()
+        ax.clear()
+        ax.grid()
+        ax.set_xlabel(self.table_doe.horizontalHeaderItem(1).text())
+        ax.set_ylabel(self.table_doe.horizontalHeaderItem(2).text())
+        x = []
+        y = []
+        # TODO: the model is hardcoded for the first and second columns
+        for row in range(self.table_doe.rowCount()):
+            x.append(float(self.table_doe.item(row, 1).text()))
+            y.append(float(self.table_doe.item(row, 2).text()))
+
+        ax.scatter(x, y)
+        self.canvas_surrogate.draw()
+
     def on_combobox_changed(self):
         """
         Populate the dependents comboBox
@@ -273,6 +303,7 @@ class MainWindow(QMainWindow):
                 self.layoutBoxes[group_name].addWidget(self.dependentBoxes[row], row+2, 4)
                 for j, var in enumerate(self.comboBoxes):
                     if var.currentText() == 'variable':
+                        # TODO: add validator for different types
                         self.dependentBoxes[row].addItem(self.labels[j].text().strip(' '))
 
     def table_doe_context_menu(self, event):
@@ -334,7 +365,7 @@ class MainWindow(QMainWindow):
         self.table_doe.item(row, 0).setText('Finished')
         self.table_doe.item(row, 0).setForeground(QColor(Qt.darkGreen))
         #case = self.table_doe.verticalHeaderItem(row).text()
-        print('FINISHED!!!')
+        print('Thread completed.')
 
     def save_config(self):
         print('Saving configuration')
