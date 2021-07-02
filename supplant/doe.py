@@ -61,6 +61,7 @@ class Configuration:
         return filenames, content
 
     def write_case_files(self, id_):
+        print(self.constants)
         table_row = []
         case_name = f'case_{id_}'
         for folder in self.folders:
@@ -79,9 +80,11 @@ class Configuration:
             new_file = file_.replace(self.skeleton, case_name)
             with open(new_file, 'w') as f:
                 f.write(content)
+        print(table_row)
         return table_row
 
     def write_configurations(self):
+        self.cases = []
         id_ = 0
         var_names = []
         table_rows = []
