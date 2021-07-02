@@ -10,23 +10,6 @@ from . import doe
 from . import openfoam
 
 
-class Worker(QObject):
-    """ Worker thread
-    """
-    finished = pyqtSignal()
-    intReady = pyqtSignal(int)
-
-    def __init__(self, solver, case):
-        super(Worker, self).__init__()
-        self.solver = solver
-        self.case = case
-
-    @pyqtSlot()
-    def run(self):
-        openfoam.run_case(self.solver, self.case)
-        self.finished.emit()
-
-
 class QHLine(QFrame):
     def __init__(self):
         super(QHLine, self).__init__()
@@ -295,20 +278,28 @@ class MainWindow(QMainWindow):
         """
         Add right mouse click options to the GUI
         """
+        row = self.table_doe.rowAt(event.y())
+        # ignore menu if no row is selected
+        if row == -1:
+            return
+
+        case = self.table_doe.verticalHeaderItem(row).text()
         table_menu = QMenu(self)
+        case_label = QAction(case)
+        case_label.setDisabled(True)
         run_action = QAction('Run', self)
         stop_action = QAction('Stop', self)
         preview_action = QAction('Preview', self)
         #results_action = QAction('Results', self)
+        table_menu.addAction(case_label)
+        table_menu.addSeparator()
         table_menu.addAction(run_action)
         table_menu.addAction(stop_action)
         table_menu.addAction(preview_action)
         #table_menu.addAction(results_action)
         table_menu.popup(QCursor.pos())
-        row = self.table_doe.rowAt(event.y())
-        col = self.table_doe.columnAt(event.x())
         action = table_menu.exec_(self.table_doe.mapToGlobal(event))
-        case = self.table_doe.verticalHeaderItem(row).text()
+
         if action == run_action:
             if case in self.running_threads.keys():
                 print(f'{case} already exists')
@@ -317,15 +308,11 @@ class MainWindow(QMainWindow):
                 self.table_doe.item(row, 0).setText('Running')
                 self.table_doe.item(row, 0).setForeground(QColor(Qt.darkYellow))
                 self.running_threads[case] = QThread()
-                self.running_workers[case] = Worker(self.of_solver, case)
-                #self.thread = QThread()
-                #self.worker = Worker(self.of_solver, case)
-                #self.worker.moveToThread(self.running_threads[case])
+                self.running_workers[case] = openfoam.Worker(self.of_solver, case)
                 self.running_workers[case].moveToThread(self.running_threads[case])
                 self.running_threads[case].started.connect(self.running_workers[case].run)
                 self.running_threads[case].start()
                 self.running_workers[case].finished.connect(lambda: self.thread_complete(row))
-                #self.worker.finished.connect(lambda: self.thread_complete(row))
         elif action == stop_action:
             if case in self.running_threads.keys():
                 if self.running_threads[case].isRunning():
