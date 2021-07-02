@@ -1,10 +1,14 @@
 import os.path
 import sys
-from PyQt5.QtWidgets import *#QApplication, QGridLayout, QPushButton, QToolButton, QWidget, QLineEdit, QLabel, QComboBox, QMainWindow, QGroupBox, QVBoxLayout, QHBoxLayout, QFrame, QSpacerItem, QSizePolicy
-from PyQt5.QtGui import QIcon, QCursor
-from PyQt5.QtCore import Qt
-
+from PyQt5.QtWidgets import *
+from PyQt5.QtGui import QIcon, QCursor, QColor
+from PyQt5.QtCore import Qt, QRunnable, pyqtSignal, pyqtSlot, QObject, QThread
+from multiprocessing import Pool
+import subprocess
+import time
 from . import doe
+from . import openfoam
+
 
 
 class QHLine(QFrame):
@@ -37,6 +41,7 @@ class MainWindow(QMainWindow):
         self.table_doe = QTableWidget()
         self.table_doe.setContextMenuPolicy(Qt.CustomContextMenu)
         self.table_doe.customContextMenuRequested.connect(self.table_doe_context_menu)
+        #self.table_doe.verticalHeader().setVisible(False)
         self.layout_doe = QGridLayout()
         self.tab_doe.setLayout(self.layout_doe)
         self.layout_doe.addWidget(self.table_doe)
@@ -61,6 +66,9 @@ class MainWindow(QMainWindow):
         self.dependentBoxes = []
         self.options = ['constant', 'variable', 'dependent']
         self.table_rows = []
+        self.of_solver = ''
+        self.running_threads = {}
+        self.running_workers = {}
 
         # Menu bar
         self.menubar = QMenuBar(self)
@@ -144,6 +152,12 @@ class MainWindow(QMainWindow):
         self.sim = doe.Configuration(self.skeleton_path)
         self.filenames, self.content = self.sim.check()
         self.content = list(dict.fromkeys(self.content))  # remove duplicates
+        self.check_software()
+
+    def check_software(self):
+        for file in self.sim.files:
+            if file.find('controlDict') >= 0:
+                self.of_solver = openfoam.get_solver(file)
 
     def populate_doe(self):
         # Assign layout to group boxes
@@ -206,7 +220,6 @@ class MainWindow(QMainWindow):
             var_name = self.content[index]
             var_value = self.lineEdits[index].text()
             var_depends = self.dependentBoxes[index].currentText()
-            print(var_type, var_name, var_value, var_depends)
             if var_type == self.options[0]: # constant
                 self.sim.add_constant(var_name, var_value)
             elif var_type == self.options[1]: # variable
@@ -219,22 +232,35 @@ class MainWindow(QMainWindow):
         self.preview_table()
 
     def preview_table(self):
+        col_size = len(self.table_rows[0])+1
+        row_size = len(self.table_rows)
+        # Empty all columns and rows before creating a new one
         while self.table_doe.rowCount() > 0:
             self.table_doe.removeRow(0)
         while self.table_doe.columnCount() > 0:
             self.table_doe.removeColumn(0)
-        labels = []
-        for i in self.labels:
-            labels.append(i.text())
-        for col in range(len(self.table_rows[0])):
+        labels = list(self.sim.constants.keys())
+        if ',' in labels[0]:
+            labels = [x.split(',')[1] for x in labels]
+        cases = [f'case_{x}' for x in range(row_size)]
+        # Create empty columns
+        for col in range(col_size):
             self.table_doe.insertColumn(col)
-        for row in range(len(self.table_rows)):
+        # Create empty rows
+        for row in range(row_size):
             self.table_doe.insertRow(row)
-        for row in range(len(self.table_rows)):
-            for col in range(len(self.table_rows[0])):
-                self.table_doe.setItem(row, col, QTableWidgetItem(self.table_rows[row][col]))
+        # Populate cells
+        for row in range(row_size):
+            self.table_doe.setItem(row, 0, QTableWidgetItem('Ready'))
+            self.table_doe.item(row, 0).setBackground(QColor(Qt.lightGray))
+            for col in range(col_size-1):
+                self.table_doe.setItem(row, col+1, QTableWidgetItem(self.table_rows[row][col]))
+        # Set initial status
+        labels.insert(0, 'Status     ')
         self.table_doe.setHorizontalHeaderLabels(labels)
+        self.table_doe.setVerticalHeaderLabels(cases)
         self.table_doe.resizeColumnsToContents()
+        self.table_doe.resize
 
     def on_combobox_changed(self):
         """
@@ -253,23 +279,60 @@ class MainWindow(QMainWindow):
         """
         Add right mouse click options to the GUI
         """
+        row = self.table_doe.rowAt(event.y())
+        # ignore menu if no row is selected
+        if row == -1:
+            return
+
+        case = self.table_doe.verticalHeaderItem(row).text()
         table_menu = QMenu(self)
+        case_label = QAction(case)
+        case_label.setDisabled(True)
         run_action = QAction('Run', self)
         stop_action = QAction('Stop', self)
         preview_action = QAction('Preview', self)
-        results_action = QAction('Results', self)
+        #results_action = QAction('Results', self)
+        table_menu.addAction(case_label)
+        table_menu.addSeparator()
         table_menu.addAction(run_action)
         table_menu.addAction(stop_action)
         table_menu.addAction(preview_action)
-        table_menu.addAction(results_action)
+        #table_menu.addAction(results_action)
         table_menu.popup(QCursor.pos())
         action = table_menu.exec_(self.table_doe.mapToGlobal(event))
+
         if action == run_action:
-            print("Running")
+            if case in self.running_threads.keys():
+                print(f'{case} already exists')
+            else:
+                print(f"Running case {row}")
+                self.table_doe.item(row, 0).setText('Running')
+                self.table_doe.item(row, 0).setForeground(QColor(Qt.darkYellow))
+                self.running_threads[case] = QThread()
+                self.running_workers[case] = openfoam.Worker(self.of_solver, case)
+                self.running_workers[case].moveToThread(self.running_threads[case])
+                self.running_threads[case].started.connect(self.running_workers[case].run)
+                self.running_threads[case].start()
+                self.running_workers[case].finished.connect(lambda: self.thread_complete(row))
         elif action == stop_action:
-            print("Stopping")
+            if case in self.running_threads.keys():
+                if self.running_threads[case].isRunning():
+                    print(f'Stopping {case}')
+                    self.running_workers[case].stop()
+                    self.running_threads[case].terminate()
+                    self.table_doe.item(row, 0).setText('Stopped')
+                    self.table_doe.item(row, 0).setForeground(QColor(Qt.darkRed))
+            else:
+                print(f"{case} is empty")
+
         elif action == preview_action:
-            print("Preview")
+            print(f"Preview of {case}")
+
+    def thread_complete(self, row):
+        self.table_doe.item(row, 0).setText('Finished')
+        self.table_doe.item(row, 0).setForeground(QColor(Qt.darkGreen))
+        #case = self.table_doe.verticalHeaderItem(row).text()
+        print('FINISHED!!!')
 
     def save_config(self):
         print('Saving configuration')
