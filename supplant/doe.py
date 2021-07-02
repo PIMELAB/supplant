@@ -63,6 +63,7 @@ class Configuration:
     def write_case_files(self, id_):
         table_row = []
         case_name = f'case_{id_}'
+        self.cases[case_name] = True
         for folder in self.folders:
             new_folder = folder.replace(self.skeleton, case_name)
             os.makedirs(new_folder, exist_ok=True)
@@ -82,7 +83,7 @@ class Configuration:
         return table_row
 
     def write_configurations(self):
-        self.cases = []
+        self.cases = {}
         id_ = 0
         var_names = []
         table_rows = []
@@ -96,7 +97,6 @@ class Configuration:
 
         elif len(self.variables) == 1:
             for count_i, i in enumerate(self.variables[var_names[0]]):
-                print('inside supplant ', i, var_names[0])
                 self.constants[var_names[0]] = i
                 for dep_key, dep_value in self.dependents.items():
                     if self.relations[dep_key] == var_names[0]:

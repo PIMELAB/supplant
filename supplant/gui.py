@@ -4,13 +4,15 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtGui import QIcon, QCursor, QColor
 from PyQt5.QtCore import Qt, QRunnable, pyqtSignal, pyqtSlot, QObject, QThread
 from matplotlib.backends.backend_qt5agg import FigureCanvas, NavigationToolbar2QT
+from matplotlib.colors import LogNorm
 from matplotlib.figure import Figure
+import numpy as np
 from multiprocessing import Pool
 import subprocess
 import time
 from . import doe
 from . import openfoam
-
+from . import python_exec
 
 class QHLine(QFrame):
     def __init__(self):
@@ -59,9 +61,13 @@ class MainWindow(QMainWindow):
         self.layout_surrogate.addWidget(self.toolbar_surrogate)
         self.layout_surrogate.addWidget(self.canvas_surrogate)
 
+
         self.pushButton_preview = QPushButton('Preview')
         self.pushButton_preview.clicked.connect(self.bake_cases)
         self.layout_right.addWidget(self.pushButton_preview)
+        self.pushButton_run_all = QPushButton('Run all cases')
+        self.pushButton_run_all.clicked.connect(self.run_all_cases)
+        self.layout_right.addWidget(self.pushButton_run_all)
 
 
         self.main_layout.addLayout(self.layout_left)
@@ -79,9 +85,11 @@ class MainWindow(QMainWindow):
         self.dependentBoxes = []
         self.options = ['constant', 'variable', 'dependent']
         self.table_rows = []
+        self.execution_software = ''  # openfoam, python, geant4, ...
         self.of_solver = ''
         self.running_threads = {}
         self.running_workers = {}
+        self.completed = False  # TODO: detect if the simulation is completed or not
 
         # Menu bar
         self.menubar = QMenuBar(self)
@@ -147,6 +155,12 @@ class MainWindow(QMainWindow):
             self.populate_doe()
         else:
             self.open_folder()
+
+        if os.path.exists(self.skeleton_path+'/system/controlDict'):
+            self.execution_software = 'OpenFOAM'
+        else:
+            self.execution_software = 'Python'
+
 
     def open_folder(self):
         """ Open file dialog to choose a folder
@@ -245,6 +259,29 @@ class MainWindow(QMainWindow):
         self.preview_table()
         self.preview_surrogate()
 
+    def run_all_cases(self):
+        # TODO: Make it a function, its used in the context menu too
+        for i, case in enumerate(self.sim.cases):
+            if case in self.running_threads.keys():
+                print(f'{case} already exists')
+            else:
+                print(f"Running case {i}")
+                self.table_doe.item(i, 0).setText('Running')
+                self.table_doe.item(i, 0).setForeground(QColor(Qt.darkYellow))
+                self.running_threads[case] = QThread()
+                if self.execution_software == 'OpenFOAM':
+                    self.running_workers[case] = openfoam.Worker(self.of_solver, case)
+                else:
+                    self.running_workers[case] = python_exec.Worker(case)
+                self.running_workers[case].moveToThread(self.running_threads[case])
+                self.running_threads[case].started.connect(self.running_workers[case].run)
+                self.running_threads[case].start()
+                self.running_workers[case].finished.connect(lambda: self.thread_complete(i))
+
+
+        self.completed = True
+        #self.preview_surrogate()
+
     def preview_table(self):
         col_size = len(self.table_rows[0])+1
         row_size = len(self.table_rows)
@@ -278,18 +315,40 @@ class MainWindow(QMainWindow):
 
     def preview_surrogate(self):
         ax = self.fig_surrogate.add_subplot()
-        ax.clear()
+
         ax.grid()
         ax.set_xlabel(self.table_doe.horizontalHeaderItem(1).text())
         ax.set_ylabel(self.table_doe.horizontalHeaderItem(2).text())
         x = []
         y = []
+        results = []
+        shape = []
         # TODO: the model is hardcoded for the first and second columns
         for row in range(self.table_doe.rowCount()):
             x.append(float(self.table_doe.item(row, 1).text()))
             y.append(float(self.table_doe.item(row, 2).text()))
-
-        ax.scatter(x, y)
+        # remove duplicates
+        x = list(dict.fromkeys(x))
+        y = list(dict.fromkeys(y))
+        if self.completed:
+            ax.clear()
+            for case in self.sim.cases:
+                res = np.loadtxt(f'{case}/output.txt')
+                results.append(res)
+            x_ax, y_ax = np.meshgrid(x, y)
+            results = np.asarray(results)
+            print(results)
+            for key, value in self.sim.variables.items():
+                shape.append(len(value))
+            results = results.reshape(shape)
+            cm = ax.pcolormesh(x_ax, y_ax, results,
+                               norm=LogNorm(vmin=results.min(),
+                                            vmax=results.max()),
+                               cmap='viridis_r')
+            #ax.scatter(results, results)
+        else:
+            ax.clear()
+            ax.scatter(x, y)
         self.canvas_surrogate.draw()
 
     def on_combobox_changed(self):
@@ -340,7 +399,10 @@ class MainWindow(QMainWindow):
                 self.table_doe.item(row, 0).setText('Running')
                 self.table_doe.item(row, 0).setForeground(QColor(Qt.darkYellow))
                 self.running_threads[case] = QThread()
-                self.running_workers[case] = openfoam.Worker(self.of_solver, case)
+                if self.execution_software == 'OpenFOAM':
+                    self.running_workers[case] = openfoam.Worker(self.of_solver, case)
+                else:
+                    self.running_workers[case] = python_exec.Worker(case)
                 self.running_workers[case].moveToThread(self.running_threads[case])
                 self.running_threads[case].started.connect(self.running_workers[case].run)
                 self.running_threads[case].start()
