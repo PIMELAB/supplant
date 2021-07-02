@@ -327,6 +327,8 @@ class MainWindow(QMainWindow):
 
         elif action == preview_action:
             print(f"Preview of {case}")
+            paraview = openfoam.ParaviewWorker(case)
+            #paraview.run()
 
     def thread_complete(self, row):
         self.table_doe.item(row, 0).setText('Finished')

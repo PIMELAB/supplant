@@ -25,14 +25,12 @@ class Worker(QObject):
     @pyqtSlot()
     def run_mesh(self):
         print('Running blockMesh NEW')
-        # block_run = BasicRunner(argv=['blockMesh', '-case', self.case], silent=True)
         self.block_run.start()
         self.finished_mesh.emit()
 
     @pyqtSlot()
     def run_solver(self):
         print(f'Running {self.solver} NEW')
-        # solver_run = BasicRunner(argv=[self.solver, '-case', self.case], silent=True)
         self.solver_run.start()
         self.finished_solver.emit()
 
@@ -48,6 +46,24 @@ class Worker(QObject):
         self.stoped_mesh.emit()
         self.solver_run.stopGracefully()
         self.stoped_solver.emit()
+
+class ParaviewWorker(QObject):
+    """ Worker thread
+    """
+    finished = pyqtSignal()
+    intReady = pyqtSignal(int)
+
+    def __init__(self, case):
+        super().__init__()
+        self.case = case
+        #self.paraview_run = BasicRunner(argv=['paraview', f'{self.case}/{self.case}.foam'], silent=True)
+        subprocess.Popen(['paraview', f'{self.case}/{self.case}.foam'])
+
+    #@pyqtSlot()
+    #def run(self):
+        #print('Running Paraview')
+        #self.paraview_run.start()
+        #self.finished_mesh.emit()
 
 
 def get_solver(file):
